@@ -1,7 +1,12 @@
-import altair as alt
+import torch
+
 import numpy as np
 import pandas as pd
 import streamlit as st
+import altair as alt
+import plotly.graph_objects as go
+
+from botorch.test_functions import Branin
 
 """
 # Welcome to my Streamlit App!
@@ -13,28 +18,17 @@ forums](https://discuss.streamlit.io).
 In the meantime, below is an example of what you can do with just a few lines of code:
 """
 
-num_points = st.slider("Number of points in spiral", 1, 10000, 1100)
-num_turns = st.slider("Number of turns in spiral", 1, 300, 31)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+dtype = torch.double
 
-indices = np.linspace(0, 1, num_points)
-theta = 2 * np.pi * num_turns * indices
-radius = indices
+STEPS = 128
 
-x = radius * np.cos(theta)
-y = radius * np.sin(theta)
+func = Branin()
+xs = [torch.linspace(*bound, steps=STEPS) for bound in func._bounds]
+x_grids = torch.meshgrid(*xs, indexing='xy')
+X_grid = torch.dstack(x_grids)
+Z_grid = func(X_grid)
 
-df = pd.DataFrame({
-    "x": x,
-    "y": y,
-    "idx": indices,
-    "rand": np.random.randn(num_points),
-})
+fig = go.Figure(data=[go.Surface(x=x_grids[0], y=x_grids[1], z=Z_grid)])
 
-st.altair_chart(alt.Chart(df, height=700, width=700)
-    .mark_point(filled=True)
-    .encode(
-        x=alt.X("x", axis=None),
-        y=alt.Y("y", axis=None),
-        color=alt.Color("idx", legend=None, scale=alt.Scale()),
-        size=alt.Size("rand", legend=None, scale=alt.Scale(range=[1, 150])),
-    ))
+st.plotly_chart(fig, use_container_width=True)
